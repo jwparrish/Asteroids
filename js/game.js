@@ -12,6 +12,9 @@ $(document).ready(function() {
 	var numAsteroids;
 	var player;
 	
+	var score;
+	var scoreTimeout;
+	
 	// Keycode Variables
 	var arrowUp = 38;
 	var arrowRight = 39;
@@ -26,6 +29,10 @@ $(document).ready(function() {
 	var uiPlay = $("#gamePlay");
 	var uiReset = $(".gameReset");
 	var uiScore = $(".gameScore");
+	
+	var soundBackground = $("#gameSoundBackground").get(0);
+	var soundThrust = $("#gameSoundThrust").get(0);
+	var soundDeath = $("#gameSoundDeath").get(0);
 	
 	
 	// Asteroid class
@@ -62,6 +69,8 @@ $(document).ready(function() {
 		asteroids = new Array();
 		numAsteroids = 10;
 		
+		score = 0;
+		
 		player = new Player(150, canvasHeight/2);
 		
 		for (var i=0; i<numAsteroids; i++) {
@@ -86,11 +95,19 @@ $(document).ready(function() {
 			
 			if (!playGame) {
 				playGame = true;
+				soundBackground.currentTime = 0;
+				soundBackground.play();
 				animate();
+				timer();
 			};
 			
 			if (keyCode == arrowRight) {
 				player.moveRight = true;
+				if (soundThrust.paused) {
+					soundThrust.currentTime = 0;
+					soundThrust.play();
+				};
+				
 				} else if (keyCode == arrowUp) {
 					player.moveUp = true;
 				} else if (keyCode == arrowDown) {
@@ -103,6 +120,8 @@ $(document).ready(function() {
 			
 			if (keyCode == arrowRight) {
 				player.moveRight = false;
+				soundThrust.pause();
+				
 				} else if (keyCode == arrowUp) {
 					player.moveUp = false;
 				} else if (keyCode = arrowDown) {
@@ -130,15 +149,32 @@ $(document).ready(function() {
 			uiComplete.hide();
 			$(window).unbind("keyup");
 			$(window).unbind("keydown");
+			soundThrust.pause();
+			soundBackground.pause();
+			clearTimeout(scoreTimeout);
 			startGame();
 		});
 	};
+	
+	// Timer Function
+	
+	function timer() {
+		if (playGame) {
+			scoreTimeout = setTimeout(function () {
+				uiScore.html(++score);
+				if (score % 5 == 0) {
+					numAsteroids += 5;
+				};
+				timer();
+			}, 1000);
+		};
+	};
+	
 	
 	//Animation loop that does all the fun stuff
 	function animate() {
 		// Clear
 		context.clearRect(0, 0, canvasWidth, canvasHeight);
-		
 		
 		// Draw Asteroids
 		var asteroidsLength = asteroids.length;
@@ -151,6 +187,28 @@ $(document).ready(function() {
 				tmpAsteroid.x = canvasWidth+tmpAsteroid.radius;
 				tmpAsteroid.y = Math.floor(Math.random()*canvasHeight);
 				tmpAsteroid.vX = -5-(Math.random()*5);
+			};
+			
+			var dX = player.x - tmpAsteroid.x;
+			var dY = player.y - tmpAsteroid.y;
+			var distance = Math.sqrt((dX*dX)+(dY*dY));
+		
+			if (distance < player.halfWidth+tmpAsteroid.radius) {
+				soundThrust.pause();
+			
+				soundDeath.currentTime = 0;
+				soundDeath.play();
+			
+				// Game Over
+				playGame = false;
+				clearTimeout(scoreTimeout);
+				uiStats.hide();
+				uiComplete.show();
+			
+				soundBackground.pause();
+			
+				$(window).unbind("keyup");
+				$(window).unbind("keydown");
 			};
 			
 			context.fillStyle = "rgb(255, 255, 255)";
@@ -221,6 +279,15 @@ $(document).ready(function() {
 		context.lineTo(player.x-player.halfWidth, player.y+player.halfHeight);
 		context.closePath();
 		context.fill();
+		
+		while (asteroids.length < numAsteroids) {
+			var radius = 5+(Math.random()*10);
+			var x = Math.floor(Math.random()*canvasWidth)+canvasWidth+radius;
+			var y = Math.floor(Math.random()*canvasHeight);
+			var vX = -5-(Math.random()*5);
+			
+			asteroids.push(new Asteroid(x, y, radius, vX));
+		};
 		
 		if (playGame) {
 			// Run the animation loop again in 33 milliseconds
